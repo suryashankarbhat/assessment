@@ -1,0 +1,127 @@
+# tallon.py
+#
+# The code that defines the behaviour of Tallon. This is the place
+# (the only place) where you should write code, using access methods
+# from world.py, and using makeMove() to generate the next move.
+#
+# Written by: Simon Parsons
+# Last Modified: 12/01/22
+import numpy as np
+import world
+import random
+import utils
+from utils import Directions
+import mdptoolbox
+class Tallon():
+
+    def __init__(self, arena):
+
+        # Make a copy of the world an attribute, so that Tallon can
+        # query the state of the world
+        self.gameWorld = arena
+
+        # What moves are possible.
+        self.moves = [Directions.NORTH, Directions.SOUTH, Directions.EAST, Directions.WEST]
+        
+    def makeMove(self):
+        # This is the function you need to define
+
+        # For now we have a placeholder, which always moves Tallon
+        # directly towards any existing bonuses. It ignores Meanies
+        # and pits.
+        # 
+        # Get the location of the Bonuses.
+        allBonuses_reward= 1
+        allMeanies_reward= -1
+        allPits_reward=-1
+        all_cell_reward=-0.04
+        allBonuses = self.gameWorld.getBonusLocation()
+        allPits = self.gameWorld.getPitslocation()
+        allMeanies =self.gameWorld.getMeanieslocation()
+        myPosition = self.gameWorld.getTallonLocation()
+
+        self.grid_size=[10,10]
+        num_states = self.grid_size[0] * self.grid_size[1]
+        num_actions = 4
+        P = np.zeros((num_actions, num_states, num_states))
+        R = np.zeros((num_states, num_actions))
+
+    def fill_in_probs(self):
+        # helpers
+        to_2d = lambda x: np.unravel_index(x, self.grid_size)
+        to_1d = lambda x: np.ravel_multi_index(x, self.grid_size)
+
+        a_up = [self.action_lrfb_prob[i] for i in (0, 1, 2, 3)]
+        a_down = [self.action_lrfb_prob[i] for i in (1, 0, 3, 2)]
+        a_left = [self.action_lrfb_prob[i] for i in (2, 3, 1, 0)]
+        a_right = [self.action_lrfb_prob[i] for i in (3, 2, 0, 1)]
+        actions = [a_up, a_down, a_left, a_right]
+
+        for i, a in enumerate(actions):
+            actions[i] = {'East':a[2], 'West':a[3], 'North':a[0], 'South':a[1]} 
+
+        def update_P_and_R(cell, new_cell, a_index, a_prob):
+            if cell == allBonuses:
+                P[a_index, to_1d(cell), to_1d(cell)] = 1.0
+                R[to_1d(cell), a_index] = allBonuses_reward
+
+            elif cell ==  allMeanies:
+                P[a_index, to_1d(cell), to_1d(cell)] = 1.0
+                R[to_1d(cell), a_index] =  allMeanies_reward
+
+            elif cell ==  allPits:  # add prob to current cell
+                P[a_index, to_1d(cell), to_1d(cell)] = 1.0
+                R[to_1d(cell), a_index] = allPits_reward
+            else:
+                P[a_index, to_1d(cell), to_1d(new_cell)] = a_prob
+                R[to_1d(cell), a_index] = all_cell_reward
+            for a_index, action in enumerate(actions):
+                for cell in np.ndindex(grid_size):
+                    # up
+                    new_cell = (cell[0]-1, cell[1])
+                    update_P_and_R(cell, new_cell, a_index, action['East'])
+
+                 # down
+                    new_cell = (cell[0]+1, cell[1])
+                    update_P_and_R(cell, new_cell, a_index, action['West'])
+
+                 # left
+                    new_cell = (cell[0], cell[1]-1)
+                    update_P_and_R(cell, new_cell, a_index, action['North'])
+
+                    # right
+                    new_cell = (cell[0], cell[1]+1)
+                    update_P_and_R(cell, new_cell, a_index, action['South'])
+        return P, R 
+pi = mdptoolbox.PolicyIteration(P ,R, 0.9)
+pi.run()
+print(pi.policy)     
+    #arr = [[0.04] * a for i in range(b)] # loop will run for the length of the outer list
+   # for i in range(b):
+    # loop will run for the length of the inner lists
+        #for j in range(a):
+         #if i== allBonuses[0].x and j== allBonuses[0].y:
+            #arr[i][j]= 1
+         #elif i == allPits[0].x and j == allPits[0].y:
+           # arr[i][j] = -1
+         #elif i == allMeanies[0].x and j == allMeanies[0].y:
+            #arr[i][j] = -1
+    #for r in arr:
+     #print( ' '.join([str(x) for x in r] ) )
+     #print (arr)
+        # if there are still bonuses, move towards the next one.
+   # if len(allBonuses) > 0:
+       # nextBonus = allBonuses[0]
+       # myPosition = self.gameWorld.getTallonLocation()
+        # If not at the same x coordinate, reduce the difference
+        #if nextBonus.x > myPosition.x:
+            #return Directions.EAST
+       # if nextBonus.x < myPosition.x:
+            #return Directions.WEST
+        # If not at the same y coordinate, reduce the difference
+        #if nextBonus.y < myPosition.y:
+         #   return Directions.NORTH
+        #if nextBonus.y > myPosition.y:
+         #   return Directions.SOUTH
+
+        # if there are no more bonuses, Tallon doesn't move
