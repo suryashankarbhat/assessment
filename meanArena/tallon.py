@@ -44,7 +44,11 @@ class Tallon():
         self.P = np.zeros((num_actions, num_states, num_states))
         self.R = np.zeros((num_states, num_actions))
         self.fill_in_probs()
-
+        #P,R=self.fill_in_probs()
+        #mdptoolbox.util.check(P, R)
+        #vi2 = mdptoolbox.mdp.ValueIteration(P, R, 0.99)
+        #vi = mdptoolbox.mdp.PolicyIteration(P, R, 0.99)
+        #vi2.run()
     def fill_in_probs(self):
         # helpers
         to_2d = lambda x: np.unravel_index(x, self.grid_size)
@@ -128,21 +132,29 @@ class Tallon():
 
         # print('length of P', len(self.P))
         # print('length of R', len(self.R))
-        print('P',self.P)
-        print('R',self.R)
-
+        #print('P',self.P)
+        #print('R',self.R)
+        return self.P,self.R
         mdptoolbox.util.check(self.P, self.R)
         vi2 = mdptoolbox.mdp.ValueIteration(self.P, self.R, 0.99)
         vi = mdptoolbox.mdp.PolicyIteration(self.P, self.R, 0.99)
         vi2.run()
-        # print('Values:\n', vi2.V)
+        print('Values:\n', vi2.V)
         print('Policy:\n', vi2.policy)
         print('Policy:\n', vi.policy)
-        
-        def movetallon(self):
-         for m in self.moves:
-            if m == vi2.policy:# to move to the required direction
-             return m
+        policyvalues= vi2.policy
+        #if policyvalues ==0:
+            #return Directions.NORTH
+        #if policyvalues ==1:
+            #return Directions.SOUTH
+       # if policyvalues ==2:
+            #return Directions.EAST   
+       # if policyvalues ==3: 
+            #return Directions.WEST   
+            #def movetallon(self):
+        # for m in self.moves:
+           #if m == vi2.policy:# to move to the required direction
+            # return m
         # This is the function you need to define
 
         # For now we have a placeholder, which always moves Tallon
