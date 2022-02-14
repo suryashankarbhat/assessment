@@ -7,8 +7,7 @@
 # Written by: Simon Parsons
 # Last Modified: 12/01/22
 
-from gzip import READ
-from statistics import mean
+
 import numpy as np
 import utils
 from utils import Directions
@@ -24,7 +23,10 @@ class Tallon():
 
         # What moves are possible.
         self.moves = [Directions.NORTH, Directions.SOUTH, Directions.EAST, Directions.WEST]#CHECK UTILS FOR DIRECTION VALUES
-        self.movevalues = [0,1,2,3]
+        
+        #since the data types are diffrent in the above declaration
+        
+        self.move = [0,1,2,3]
     def makeMove(self):
         # This is the function you need to define
 
@@ -33,174 +35,180 @@ class Tallon():
         # and pits.
         # 
         # Get the location of the Bonuses.
-        
-        #Policy iteration
+        #the policy iteration is done using the mdptoolbox the optimum policy will give the best action for the  tallon
         try:
             myPosition = self.gameWorld.getTallonLocation()
-            search = utils.pickRandomPose(myPosition.x,myPosition.y)
+            current_position = utils.pickRandomPose(myPosition.x,myPosition.y)
             #Shows updating policy as time goes on. The values in this need to be parsed to a function to create updating Optimum policy
-            P,R = self.fill_in_probs()
+            P,R = self.probability()
+            #mdptoolbox is a library used to obtain the optimum policy
+            #and the below code will check whether the data are stochastic or not
+            
             mdptoolbox.util.check(P,R)
+
+            #the below code will give the value of value iteration
             vi2 = mdptoolbox.mdp.ValueIteration(P,R,0.99)
             vi2.run()
+            
+            print('probability array:\n',P)
+            print('probability array:\n',R)
             print('Policy:\n', vi2.policy)
-           
+            #the below code is run to convert the co -ordinates of the tallon to 1d array
             tallon_position = lambda x: np.ravel_multi_index(x, (10,10))
-            tallon_at = int(tallon_position((myPosition.y,myPosition.x)))
-            print("Tallon is at: ",tallon_at)
-
-            if int(vi2.policy[tallon_at]) == self.movevalues[0]:
-                print("At:",tallon_at," best move is going", vi2.policy[tallon_at],"north")
-                return Directions.SOUTH## due to wrong addition in the world.py line 158 and 162, North actually moves Tallon down(SOUTH) on the graph and South moves Tallon up(NORTH) on the graph 
-            if int(vi2.policy[tallon_at]) == self.movevalues[1]:
-                print("At:",tallon_at," best move is going",vi2.policy[tallon_at],"south")
+            # this gives the current position of the tallon
+            current_tallon = int(tallon_position((myPosition.y,myPosition.x)))
+            print("Tallon's position: ",current_tallon)
+            # the below code is used for the agent that is tallon to take action based the optimum policy
+            if int(vi2.policy[current_tallon]) == self.move[0]:
+                print("tallon's best move is going north")
+                return Directions.SOUTH
+            if int(vi2.policy[current_tallon]) == self.move[1]:
+                print("tallon's best move is going south")
                 return Directions.NORTH
-            if int(vi2.policy[tallon_at]) == self.movevalues[2]:
-                print("At:",tallon_at,"best move is going", vi2.policy[tallon_at],"east")
+            if int(vi2.policy[current_tallon]) == self.move[2]:
+                print("tallon's best move is going east")
                 return Directions.EAST
-            if int(vi2.policy[tallon_at]) ==self.movevalues[3]:
-                print("At:",tallon_at,"best move is going",vi2.policy[tallon_at],"west")
+            if int(vi2.policy[current_tallon]) ==self.move[3]:
+                print("tallon's best move is going west")
                 return Directions.WEST
                 #if there are no more bonuses, Tallon searches for them
 
         except Exception as e:
-            print("Searching for bonuses")
-            if search.x > myPosition.x:
+            print("Searching...")
+            if current_position.x > myPosition.x:
                 return Directions.EAST
-            if search.x < myPosition.x:
+            if current_position.x < myPosition.x:
                 return Directions.WEST
             # If not at the same y coordinate, reduce the difference
-            if search.y > myPosition.y:
+            if current_position.y > myPosition.y:
                 return Directions.NORTH
-            if search.y < myPosition.y:
+            if current_position.y < myPosition.y:
                 return Directions.SOUTH
             print(e)
         
-#Baised of this example   
-#https://stats.stackexchange.com/questions/339592/how-to-get-p-and-r-values-for-a-markov-decision-process-grid-world-problem
+
     
-    def fill_in_probs(self):
+    def probability(self):
         grid_size = (config.worldBreadth, config.worldLength)
-        white_cell_reward = -0.04
+        #the below code is written based on the below link which explains how the probability and reward array can be obtained for a grid 
+        #https://stats.stackexchange.com/questions/339592/how-to-get-p-and-r-values-for-a-markov-decision-process-grid-world-problem
         
-        allBonuses = self.gameWorld.getBonusLocation()
-        allmeanies= self.gameWorld.getMeanieLocation()
-        allpits = self.gameWorld.getPitsLocation()
-        grid_boundary = [(0,1),(0,10),(10,1),(10,10)]
+        totalBonuses = self.gameWorld.getBonusLocation()#allBonuses
+        totalmeanies= self.gameWorld.getMeanieLocation()#allmeanies
+        totalpits = self.gameWorld.getPitsLocation()#allpits
+        grid_edges = [(0,0),(0,10),(10,0),(10,10)]#grid boundry
         bonuses_reward= 1.0
-        negative_reward= -1.0
-        action_North_South_East_West=(.025, .025, config.directionProbability, 0.)  #West,East,North,South     
+        meanie_reward= -1.0
+        pit_reward= -1.0
+        empty_cell_reward = -0.04
+        action_N_S_E_W=(.025, .025, config.directionProbability, 0.)  #West,East,North,South     
           
         num_states = grid_size[0] * grid_size[1]
         num_actions = 4
-        P = np.zeros((num_actions, num_states, num_states))
-        R = np.zeros((num_states, num_actions))
+        Pr = np.zeros((num_actions, num_states, num_states))
+        Re = np.zeros((num_states, num_actions))
         try:
             myPosition = self.gameWorld.getTallonLocation()
             tallon_position = lambda x: np.ravel_multi_index(x, (10,10))
-            tallon_at = tallon_position((myPosition.y,myPosition.x))
-            pit_positions = lambda x: np.ravel_multi_index(x,(10,10))
-            meanie_positions = lambda x: np.ravel_multi_index(x,(10,10))
-            bonus_positions = lambda x: np.ravel_multi_index(x,(10,10))
+            tallon_current = tallon_position((myPosition.y,myPosition.x))
+            allpitsloc = lambda x: np.ravel_multi_index(x,(10,10))
+            allmeaniesloc = lambda x: np.ravel_multi_index(x,(10,10))
+            allbonusloc = lambda x: np.ravel_multi_index(x,(10,10))
+            bonuses_loc=[]
+            pits_loc=[]
+            meanies_loc=[] 
+           #this code  creates an array of the coordinates and used the min function to get the location closest to Tallon so it could go to that first
+           
+            for b in range(len(totalBonuses)):
+                bonuses_loc.append(allbonusloc((totalBonuses[b].y,totalBonuses[b].x)))
+                near_bonus = min( bonuses_loc,key=lambda x:abs(x- tallon_current))
+                near_bonus = str(near_bonus)
+                near_bonus = (int(near_bonus[0]),int(near_bonus[1])) if (len(near_bonus)>1) else (0,int(near_bonus))
+                nearestbonus = near_bonus
+                #these for loops are used to find the nearest bonus and move towards,  every time it collects the bonus the next bonus location  is stored in the nearest bonus
+                #similarly all the othermeanies and pit loops work
+            for m in range(len(totalmeanies)):
+                meanies_loc.append( allmeaniesloc((totalmeanies[m].y,totalmeanies[m].x)))
+                near_meanie = min( meanies_loc,key=lambda x:abs(x- tallon_current))
+                near_meanie = str(near_meanie)
+                near_meanie = (int(near_meanie[0]),int(near_meanie[1])) if (len(near_meanie)>1) else (0,int(near_meanie))
+                nearestmeanie = near_meanie
               
-            bonuses_at=[]
-            pits_at=[]
-            meanies_at=[]
-            #i created an array of the coordinates and used the min function to get the location closest to Tallon so it could go to that first
-            #https://stackoverflow.com/questions/12141150/from-list-of-integers-get-number-closest-to-a-given-value
-            for bonus in range(len(allBonuses)):
-                bonuses_at.append( bonus_positions((allBonuses[bonus].y,allBonuses[bonus].x)))
-                closestbonus = min(bonuses_at,key=lambda x:abs(x-tallon_at))
+            for p in range(len(totalpits)):
+                pits_loc.append(allpitsloc((totalpits[p].y,totalpits[p].x)))
+                near_pit = min(pits_loc,key=lambda x:abs(x- tallon_current))
+                near_pit = str(near_pit)
+                near_pit = (int(near_pit[0]),int(near_pit[1])) if(len(near_pit)>1) else (0,int(near_pit))
+                nearestpit = near_pit
                 
-                #print("Bonueses unravelled is: ", bonuses_at)
-                closestbonus = str(closestbonus)
-                closestbonus = (int(closestbonus[0]),int(closestbonus[1])) if (len(closestbonus)>1) else (0,int(closestbonus))
-                #print("Bonus closest to Tallon is: ",closestbonus)
-                currentbonus = closestbonus
-
-            for meanie in range(len(allmeanies)):
-                meanies_at.append(meanie_positions((allmeanies[meanie].y,allmeanies[meanie].x)))
-                closestmeanie = min(meanies_at,key=lambda x:abs(x-tallon_at))
-                closestmeanie = str(closestmeanie)
-                closestmeanie = (int(closestmeanie[0]),int(closestmeanie[1])) if (len(closestmeanie)>1) else (0,int(closestmeanie))
-                currentmeanie = closestmeanie
-              
-            for pit in range(len(allpits)):
-                pits_at.append(pit_positions((allpits[pit].y,allpits[pit].x)))
-                closestpit = min(pits_at,key=lambda x:abs(x-tallon_at))
-                closestpit = str(closestpit)
-                closestpit = (int(closestpit[0]),int(closestpit[1])) if(len(closestpit)>1) else (0,int(closestpit))
-                currentpit = closestpit
-                
-            #https://www.w3schools.com/python/python_lambda.asp
-            #https://numpy.org/doc/stable/reference/generated/numpy.ravel_multi_index.html
+            #this function used to convert 2D array into 1D array as mentioned earlier
             to_1d = lambda x: np.ravel_multi_index(x, grid_size)
             
-            def hit_wall(cell):
-                if cell in grid_boundary:
+            def hit_boundries(cell):
+                if cell in grid_edges:
                     return True
-                try: # ...good enough...
+                try: 
                     to_1d(cell)
                 except ValueError as e:
                     return True
                 return False
-            #print("to_1d array", to_1d((5,5)))
-            # converts the multidimentional grid to a 1 dimentional grid by converting each 2D cell location to its 1d equivalent 5 by 5 becomes position 55 for example
-            # and then the indices of the cell are applied to the shape of the grid size (10,10)
-            #########################################################################################
-            # make probs for each action
-            
-            North = [action_North_South_East_West[i] for i in (0, 1, 2, 3)]#up
-            South = [action_North_South_East_West[i] for i in (1, 0, 3, 2)]#down
-            West = [action_North_South_East_West[i] for i in (2, 3, 1, 0)]#left
-            East = [action_North_South_East_West[i] for i in (3, 2, 0, 1)]#right
+            # creating probability table for each action
+            #probability table for moving north
+            North = [action_N_S_E_W[i] for i in (0, 1, 2, 3)]
+            #probability table for moving south
+            South = [action_N_S_E_W[i] for i in (1, 0, 3, 2)]
+            #probability table for moving west
+            West = [action_N_S_E_W[i] for i in (2, 3, 1, 0)]
+            #probability table for moving east
+            East = [action_N_S_E_W[i] for i in (3, 2, 0, 1)]
             actions = [North, South, East, West]
             for i, a in enumerate(actions):
                 actions[i] = {'North':a[2], 'South':a[3], 'West':a[0], 'East':a[1]}
                 
-            # work in terms of the 2d grid representation
-        
-            def update_P_and_R(cell, new_cell, a_index, a_prob):
+            
+        #this below function is used to update the probability and reward array every time the tallon takes action
+            def update_Prob_and_Reward(cell, new_cell, a_index, a_prob):
                     
-                if cell == currentbonus:
-                    P[a_index, to_1d(cell), to_1d(cell)] = 1.0
-                    R[to_1d(cell), a_index] = bonuses_reward
+                if cell == nearestbonus:
+                    Pr[a_index, to_1d(cell), to_1d(cell)] = 1.0
+                    Re[to_1d(cell), a_index] = bonuses_reward
                     
-                elif cell == currentmeanie:
-                    P[a_index, to_1d(cell), to_1d(cell)] = 1.0
-                    R[to_1d(cell), a_index] = negative_reward
+                elif cell == nearestmeanie:
+                    Pr[a_index, to_1d(cell), to_1d(cell)] = 1.0
+                    Re[to_1d(cell), a_index] =meanie_reward
 
-                elif cell == currentpit:  # add prob to current cell
-                    P[a_index, to_1d(cell), to_1d(cell)] = 1.0
-                    R[to_1d(cell), a_index] = negative_reward
+                elif cell == nearestpit:  # add prob to current cell
+                    Pr[a_index, to_1d(cell), to_1d(cell)] = 1.0
+                    Re[to_1d(cell), a_index] = pit_reward
                 
-                elif hit_wall(new_cell):  # add prob to current cell
-                    P[a_index, to_1d(cell), to_1d(cell)] += a_prob
-                    R[to_1d(cell), a_index] = white_cell_reward
+                elif hit_boundries(new_cell):  # add prob to current cell
+                    Pr[a_index, to_1d(cell), to_1d(cell)] += a_prob
+                    Re[to_1d(cell), a_index] = empty_cell_reward
                 
                 else:
-                    P[a_index, to_1d(cell), to_1d(new_cell)] = a_prob
-                    R[to_1d(cell), a_index] = white_cell_reward
+                    Pr[a_index, to_1d(cell), to_1d(new_cell)] = a_prob
+                    Re[to_1d(cell), a_index] = empty_cell_reward
 
             for a_index, action in enumerate(actions):
                 for cell in np.ndindex(grid_size):
-                    # up
-                    new_cell = (cell[0]-1, cell[1])#subtracting from row makes us go up to previous row
-                    update_P_and_R(cell, new_cell, a_index, action['North'])
+                  # the below code will allow the tallon to move up
+                    new_cell = (cell[0]-1, cell[1])
+                    update_Prob_and_Reward(cell, new_cell, a_index, action['North'])
 
-                    # down
+                    # the below code will allow the tallon to move down
                     new_cell = (cell[0]+1, cell[1])#adding to row makes us go down a row
-                    update_P_and_R(cell, new_cell, a_index, action['South'])
+                    update_Prob_and_Reward(cell, new_cell, a_index, action['South'])
 
-                    # left
+                    #the below code will allow the tallon left
                     new_cell = (cell[0], cell[1]-1)
-                    update_P_and_R(cell, new_cell, a_index, action['West'])
-                    # right
+                    update_Prob_and_Reward(cell, new_cell, a_index, action['West'])
+                    #the below code will allow the tallon right
                     new_cell = (cell[0], cell[1]+1)
-                    update_P_and_R(cell, new_cell, a_index, action['East'])
+                    update_Prob_and_Reward(cell, new_cell, a_index, action['East'])
             
-            return P, R
+            return Pr, Re
         except Exception as e:
             print(e)
-          
+ #  in this try and except is used to neglate the errors when there are no bonuses or when tallon cannot see the bonuses during partial observability      
+       
 
